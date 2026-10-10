@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="TaskBoard.Web/TaskBoard.Web.csproj" />
+  <Project Path="TaskBoard.Api/TaskBoard.Api.csproj" />
+  <Project Path="TaskBoard.Core/TaskBoard.Core.csproj" />
+  <Project Path="TaskBoard.Infrastructure/TaskBoard.Infrastructure.csproj" />
+  <Project Path="TaskBoard.Tests/TaskBoard.Tests.csproj" />
+</Solution>
