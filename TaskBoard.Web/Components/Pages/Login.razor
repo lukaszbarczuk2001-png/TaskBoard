@@ -5,9 +5,11 @@
 
 <PageTitle>Sign in - TaskBoard</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
-    <MudPaper Class="pa-6" Elevation="3">
-        <MudText Typo="Typo.h5" Class="mb-4">Sign in to TaskBoard</MudText>
+<MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="mt-12">
+    <MudPaper Class="tb-auth-card" Outlined="true" Elevation="0">
+        <span class="tb-logo mb-4" style="width:40px;height:40px;border-radius:12px"><MudIcon Icon="@Icons.Material.Filled.ViewKanban" /></span>
+        <MudText Typo="Typo.h5" Class="mb-1">Sign in to TaskBoard</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">Plan, track and ship your work.</MudText>
 
         @if (_error is not null)
         {

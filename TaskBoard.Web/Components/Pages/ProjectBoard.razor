@@ -18,7 +18,14 @@
 
 @if (_loading)
 {
-    <MudProgressLinear Indeterminate="true" />
+    <MudGrid>
+        @for (var i = 0; i < 3; i++)
+        {
+            <MudItem xs="12" md="4">
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="320px" Class="rounded-lg" Animation="Animation.Wave" />
+            </MudItem>
+        }
+    </MudGrid>
 }
 else if (_error is not null)
 {

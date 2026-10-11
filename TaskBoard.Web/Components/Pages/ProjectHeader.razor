@@ -3,7 +3,7 @@
     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4" Wrap="Wrap.Wrap">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
             <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/" aria-label="Back to projects" />
-            <MudAvatar Color="@UiHelpers.ColorFor(Project.Key)" Variant="Variant.Filled" Rounded="true">@Project.Key[..1]</MudAvatar>
+            <MudAvatar Style="@UiHelpers.BadgeStyle(Project.Key)" Rounded="true">@Project.Key[..1]</MudAvatar>
             <div>
                 <MudText Typo="Typo.h5">@Project.Name</MudText>
                 <MudText Typo="Typo.caption" Color="Color.Secondary">@Project.Key</MudText>

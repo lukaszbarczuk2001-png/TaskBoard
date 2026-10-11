@@ -22,7 +22,14 @@
 
 @if (!State.Loaded && State.Error is null)
 {
-    <MudProgressLinear Indeterminate="true" Class="mb-4" />
+    <MudGrid>
+        @for (var i = 0; i < 4; i++)
+        {
+            <MudItem xs="12" sm="6" md="4" lg="3">
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="150px" Class="rounded-lg" Animation="Animation.Wave" />
+            </MudItem>
+        }
+    </MudGrid>
 }
 else if (State.Error is not null)
 {
@@ -49,7 +56,7 @@ else
                 <MudCard Class="tb-card" Outlined="true" Elevation="0">
                     <MudCardContent>
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="mb-3">
-                            <MudAvatar Color="@UiHelpers.ColorFor(project.Key)" Variant="Variant.Filled" Rounded="true">
+                            <MudAvatar Style="@UiHelpers.BadgeStyle(project.Key)" Rounded="true">
                                 @project.Key[..1]
                             </MudAvatar>
                             <div style="min-width:0">
