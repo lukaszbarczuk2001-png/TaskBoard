@@ -1,0 +1,179 @@
+@page "/projects/{ProjectId:guid}"
+@inject TaskBoardApiClient Api
+@inject AuthTokenService Auth
+@inject NavigationManager Nav
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<PageTitle>@(_project?.Name ?? "Board") - TaskBoard</PageTitle>
+
+<MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/" aria-label="Back to projects" />
+        @if (_project is not null)
+        {
+            <MudChip T="string" Color="Color.Primary" Size="Size.Small">@_project.Key</MudChip>
+            <MudText Typo="Typo.h4">@_project.Name</MudText>
+        }
+    </MudStack>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+               OnClick="CreateIssueAsync" Disabled="_project is null">
+        New issue
+    </MudButton>
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error">
+        @_error
+        <MudButton Variant="Variant.Text" Color="Color.Inherit" OnClick="LoadAsync">Retry</MudButton>
+    </MudAlert>
+}
+else
+{
+    <MudDropContainer T="IssueDto" @ref="_container" Items="_issues"
+                      ItemsSelector="@((issue, zone) => issue.Status.ToString() == zone)"
+                      ItemDropped="OnItemDroppedAsync" Class="d-flex flex-row flex-wrap gap-4">
+        <ChildContent>
+            @foreach (var status in Columns)
+            {
+                <MudPaper Class="pa-3" Style="min-width: 280px; flex: 1;" Elevation="0" Outlined="true">
+                    <MudText Typo="Typo.subtitle1" Class="mb-2">
+                        @ColumnTitle(status) <MudChip T="string" Size="Size.Small">@CountIn(status)</MudChip>
+                    </MudText>
+                    <MudDropZone T="IssueDto" Identifier="@status.ToString()" Class="rounded-lg pa-1"
+                                 Style="min-height: 120px;" AllowReorder="false" />
+                </MudPaper>
+            }
+        </ChildContent>
+        <ItemRenderer>
+            <MudCard Class="mb-2" Elevation="2">
+                <MudCardContent Class="pa-3">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@($"{_project?.Key}-{context.Number}")</MudText>
+                    <MudText Typo="Typo.body1">@context.Title</MudText>
+                    <MudStack Row="true" Spacing="1" Class="mt-2">
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@context.Type</MudChip>
+                        <MudChip T="string" Size="Size.Small" Color="@PriorityColor(context.Priority)">@context.Priority</MudChip>
+                    </MudStack>
+                </MudCardContent>
+            </MudCard>
+        </ItemRenderer>
+    </MudDropContainer>
+}
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private static readonly IssueStatus[] Columns = [IssueStatus.ToDo, IssueStatus.InProgress, IssueStatus.Done];
+
+    private MudDropContainer<IssueDto>? _container;
+    private ProjectDto? _project;
+    private List<IssueDto> _issues = [];
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Auth.IsAuthenticated)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        var project = await Api.GetProjectAsync(ProjectId);
+        if (!project.Ok)
+        {
+            _error = project.Error;
+            _loading = false;
+            return;
+        }
+
+        var issues = await Api.GetIssuesAsync(ProjectId);
+        if (!issues.Ok)
+        {
+            _error = issues.Error;
+            _loading = false;
+            return;
+        }
+
+        _project = project.Value;
+        _issues = issues.Value!;
+        _loading = false;
+    }
+
+    private async Task CreateIssueAsync()
+    {
+        var dialog = await Dialogs.ShowAsync<CreateIssueDialog>("New issue");
+        var dialogResult = await dialog.Result;
+
+        if (dialogResult is not { Canceled: false, Data: CreateIssueRequest request })
+        {
+            return;
+        }
+
+        var result = await Api.CreateIssueAsync(ProjectId, request);
+        if (!result.Ok)
+        {
+            Snackbar.Add(result.Error ?? "Could not create the issue.", Severity.Error);
+            return;
+        }
+
+        _issues.Add(result.Value!);
+        _container?.Refresh();
+        Snackbar.Add($"{_project?.Key}-{result.Value!.Number} created.", Severity.Success);
+    }
+
+    private async Task OnItemDroppedAsync(MudItemDropInfo<IssueDto> drop)
+    {
+        if (drop.Item is null || !Enum.TryParse<IssueStatus>(drop.DropzoneIdentifier, out var newStatus)
+            || drop.Item.Status == newStatus)
+        {
+            return;
+        }
+
+        var original = drop.Item;
+        var index = _issues.FindIndex(i => i.Id == original.Id);
+        if (index < 0) return;
+
+        // Optimistic update: move the card immediately, then confirm with the API.
+        _issues[index] = original with { Status = newStatus };
+        _container?.Refresh();
+
+        var result = await Api.UpdateIssueStatusAsync(ProjectId, original.Id, newStatus);
+        if (!result.Ok)
+        {
+            _issues[index] = original; // roll back
+            _container?.Refresh();
+            Snackbar.Add(result.Error ?? "Could not move the issue.", Severity.Error);
+        }
+    }
+
+    private int CountIn(IssueStatus status) => _issues.Count(i => i.Status == status);
+
+    private static string ColumnTitle(IssueStatus status) => status switch
+    {
+        IssueStatus.ToDo => "To do",
+        IssueStatus.InProgress => "In progress",
+        IssueStatus.Done => "Done",
+        _ => status.ToString()
+    };
+
+    private static Color PriorityColor(IssuePriority priority) => priority switch
+    {
+        IssuePriority.High => Color.Error,
+        IssuePriority.Medium => Color.Warning,
+        _ => Color.Default
+    };
+}

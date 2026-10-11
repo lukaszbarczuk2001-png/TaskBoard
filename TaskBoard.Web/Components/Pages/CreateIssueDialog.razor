@@ -1,0 +1,41 @@
+<MudDialog>
+    <DialogContent>
+        <MudTextField @bind-Value="_title" Label="Title" Immediate="true" MaxLength="300" Class="mb-2" Required="true" />
+        <MudTextField @bind-Value="_description" Label="Description (optional)" Lines="4" Class="mb-2" />
+        <MudStack Row="true" Spacing="2">
+            <MudSelect T="IssueType" @bind-Value="_type" Label="Type">
+                @foreach (var type in Enum.GetValues<IssueType>())
+                {
+                    <MudSelectItem Value="type">@type</MudSelectItem>
+                }
+            </MudSelect>
+            <MudSelect T="IssuePriority" @bind-Value="_priority" Label="Priority">
+                @foreach (var priority in Enum.GetValues<IssuePriority>())
+                {
+                    <MudSelectItem Value="priority">@priority</MudSelectItem>
+                }
+            </MudSelect>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Submit"
+                   Disabled="string.IsNullOrWhiteSpace(_title)">
+            Create
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string _title = string.Empty;
+    private string? _description;
+    private IssueType _type = IssueType.Task;
+    private IssuePriority _priority = IssuePriority.Medium;
+
+    private void Submit() =>
+        MudDialog.Close(DialogResult.Ok(new CreateIssueRequest(_title.Trim(), _description, _priority, _type)));
+
+    private void Cancel() => MudDialog.Cancel();
+}
