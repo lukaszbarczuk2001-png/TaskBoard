@@ -1,5 +1,4 @@
 @TaskBoard.Api_HostAddress = https://localhost:7280
-@accessToken = CfDJ8P2yl_9f1c9GkgeyZXIONwGLAJ7wetJRbYQK4w95NWlx8HB1QNkk2DKn36j5KffGjLXSCCrij15HD5uC-IJx5saN7sCT5lQKtJ6_JaU2iVX2KbfGTPqaSG-0l9kkbjGEgMfOI59zSKF5jNz4EUF-qtBV3bPqZXNWmfF5iDGSby-9eV15urWVoqsmmDxjoQA25qnd30vtoaeiRCmIpcTlvbcSArSfFG-Vp13NNzUYCcrnm41QymWI1LcFbcehKu_91JKkLNpGoL-KcF0UbR363hibcY8H79wySoP5q1CcBpCh1TsVb8mSD7cr3yyUITRCqiIglhRR-Cmg03EawvJAt9BuDFH9Uw-k16siJ-GjjccpV8VZqi4o6j93B0PD4mze9IzvVNI6KuxX5gkLN1IZYPcSMeFCz9JaLoQkNAdICwIXmyb64fL-oYV7k3arKe6fQFJCruuf00JIw7P5KPlpc8XfG6XcC0K2IBAum5fWqMES2ZkT5mQ8kI2rI3UYQP6jJVLXwBFGC9JlDvF6zokzu6gfkmL4JM0XVeEKDjVL7BW8FKBvcmOQW-NTJeQeim-KsstKteXbBlxxV1xmYF2cpI1Si_r-rt8Hf4UK5F3qU_N4QMQFk71kOXLfpDNXVfLTRPnvwLX34ocotp6NLu0xtz3yFrcpUSJ462knDS8b88lMTVJasRrqGHB1nhJ5i7SwasXoho-zb2oKTmM7KWph15A
 
 ### Register a new user
 POST {{TaskBoard.Api_HostAddress}}/api/auth/register
@@ -10,7 +9,8 @@ Content-Type: application/json
   "password": "P@ssw0rd!123"
 }
 
-### Log in -> returns accessToken (copy it into the Authorization header below)
+### Log in (named 'login': later requests read its accessToken, no copy/paste)
+# @name login
 POST {{TaskBoard.Api_HostAddress}}/api/auth/login
 Content-Type: application/json
 
@@ -19,18 +19,68 @@ Content-Type: application/json
   "password": "P@ssw0rd!123"
 }
 
+
 ### List projects (requires auth)
 GET {{TaskBoard.Api_HostAddress}}/api/projects
-Authorization: Bearer {{accessToken}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
 
-### Create a project (requires auth)
+### Create a project (requires auth) (named 'createProject')
+# @name createProject
 POST {{TaskBoard.Api_HostAddress}}/api/projects
 Content-Type: application/json
-Authorization: Bearer {{accessToken}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
 
 {
-  "key": "TB",
-  "name": "TaskBoard",
+  "key": "DEMO",
+  "name": "Demo project",
   "description": "Pierwszy projekt testowy",
   "ownerId": "00000000-0000-0000-0000-000000000000"
 }
+
+
+### List issues for the project (requires auth)
+GET {{TaskBoard.Api_HostAddress}}/api/projects/{{createProject.response.body.$.id}}/issues
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Create an issue (requires auth) (named 'createIssue')
+# @name createIssue
+POST {{TaskBoard.Api_HostAddress}}/api/projects/{{createProject.response.body.$.id}}/issues
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+{
+  "title": "Set up CI pipeline",
+  "description": "Add a GitHub Actions workflow that builds and tests on push",
+  "priority": "High",
+  "type": "Task"
+}
+
+
+### Get a single issue (requires auth)
+GET {{TaskBoard.Api_HostAddress}}/api/projects/{{createProject.response.body.$.id}}/issues/{{createIssue.response.body.$.id}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Move an issue to InProgress (requires auth; same call the Kanban drag-and-drop will make)
+PATCH {{TaskBoard.Api_HostAddress}}/api/projects/{{createProject.response.body.$.id}}/issues/{{createIssue.response.body.$.id}}/status
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+{
+  "status": "InProgress"
+}
+
+### Update an issue's details (requires auth)
+PUT {{TaskBoard.Api_HostAddress}}/api/projects/{{createProject.response.body.$.id}}/issues/{{createIssue.response.body.$.id}}
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+{
+  "title": "Set up CI pipeline (GitHub Actions)",
+  "description": "Add a GitHub Actions workflow that builds and tests on push",
+  "priority": "High",
+  "type": "Task"
+}
+
+### Delete an issue (requires auth)
+DELETE {{TaskBoard.Api_HostAddress}}/api/projects/{{createProject.response.body.$.id}}/issues/{{createIssue.response.body.$.id}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
