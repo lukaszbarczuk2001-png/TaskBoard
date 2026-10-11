@@ -1,0 +1,207 @@
+@page "/projects/{ProjectId:guid}/dashboard"
+@inject TaskBoardApiClient Api
+@inject AuthTokenService Auth
+@inject NavigationManager Nav
+
+<PageTitle>@(_project?.Name ?? "Dashboard") - TaskBoard</PageTitle>
+
+<ProjectHeader Project="_project" ActiveTab="dashboard" />
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error">
+        @_error
+        <MudButton Variant="Variant.Text" Color="Color.Inherit" OnClick="LoadAsync">Retry</MudButton>
+    </MudAlert>
+}
+else
+{
+    <MudGrid Spacing="3">
+        <MudItem xs="6" md="3">
+            <MudPaper Outlined="true" Elevation="0" Class="pa-4">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Total issues</MudText>
+                <MudText Typo="Typo.h3">@_issues.Count</MudText>
+            </MudPaper>
+        </MudItem>
+        @foreach (var status in Enum.GetValues<IssueStatus>())
+        {
+            <MudItem xs="6" md="3">
+                <MudPaper Outlined="true" Elevation="0" Class="pa-4">
+                    <MudText Typo="Typo.overline" Color="Color.Secondary">@UiHelpers.StatusLabel(status)</MudText>
+                    <MudText Typo="Typo.h3" Color="@(status == IssueStatus.ToDo ? Color.Default : UiHelpers.StatusColor(status))">@CountBy(status)</MudText>
+                </MudPaper>
+            </MudItem>
+        }
+
+        <MudItem xs="12" md="5">
+            <MudPaper Outlined="true" Elevation="0" Class="pa-4" Style="height:100%">
+                <MudText Typo="Typo.subtitle1" Class="mb-2">Status overview</MudText>
+                @if (_issues.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">No issues yet.</MudText>
+                }
+                else
+                {
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="6">
+                        <div class="tb-donut" style="@DonutStyle()">
+                            <div class="tb-donut-hole">
+                                <MudText Typo="Typo.h5">@CompletionPercent()%</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">done</MudText>
+                            </div>
+                        </div>
+                        <MudStack Spacing="1">
+                            @foreach (var (label, value) in _statusLabels.Zip(_statusData))
+                            {
+                                <MudText Typo="Typo.body2">@label: <b>@value</b></MudText>
+                            }
+                        </MudStack>
+                    </MudStack>
+                }
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="4">
+            <MudPaper Outlined="true" Elevation="0" Class="pa-4" Style="height:100%">
+                <MudText Typo="Typo.subtitle1" Class="mb-3">By priority</MudText>
+                @foreach (var priority in Enum.GetValues<IssuePriority>().Reverse())
+                {
+                    <div class="mb-3">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@UiHelpers.PriorityIcon(priority)" Color="@UiHelpers.PriorityColor(priority)" Size="Size.Small" />
+                                <MudText Typo="Typo.body2">@priority</MudText>
+                            </MudStack>
+                            <MudText Typo="Typo.body2">@CountBy(priority)</MudText>
+                        </MudStack>
+                        <MudProgressLinear Value="@Percent(CountBy(priority))" Color="@UiHelpers.PriorityColor(priority)" Rounded="true" />
+                    </div>
+                }
+                <MudText Typo="Typo.subtitle1" Class="mb-3 mt-5">By type</MudText>
+                @foreach (var type in Enum.GetValues<IssueType>())
+                {
+                    <div class="mb-3">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@UiHelpers.TypeIcon(type)" Color="@UiHelpers.TypeColor(type)" Size="Size.Small" />
+                                <MudText Typo="Typo.body2">@type</MudText>
+                            </MudStack>
+                            <MudText Typo="Typo.body2">@CountBy(type)</MudText>
+                        </MudStack>
+                        <MudProgressLinear Value="@Percent(CountBy(type))" Color="@UiHelpers.TypeColor(type)" Rounded="true" />
+                    </div>
+                }
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="3">
+            <MudPaper Outlined="true" Elevation="0" Class="pa-4" Style="height:100%">
+                <MudText Typo="Typo.subtitle1" Class="mb-3">Workload</MudText>
+                @if (_workload.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">No open assigned issues.</MudText>
+                }
+                @foreach (var (name, count) in _workload)
+                {
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
+                        <MudAvatar Size="Size.Small" Color="@UiHelpers.ColorFor(name)" Style="font-size:0.7rem">@UiHelpers.Initials(name)</MudAvatar>
+                        <MudText Typo="Typo.body2" Style="flex:1" Class="text-truncate">@name</MudText>
+                        <MudChip T="string" Size="Size.Small">@count</MudChip>
+                    </MudStack>
+                }
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2">
+                    Unassigned open issues: @_unassignedOpen
+                </MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private ProjectDto? _project;
+    private List<IssueDto> _issues = [];
+    private bool _loading = true;
+    private string? _error;
+
+    private double[] _statusData = [];
+    private string[] _statusLabels = [];
+    private List<(string Name, int Count)> _workload = [];
+    private int _unassignedOpen;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Auth.IsAuthenticated)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        var projectTask = Api.GetProjectAsync(ProjectId);
+        var issuesTask = Api.GetIssuesAsync(ProjectId);
+        var usersTask = Api.GetUsersAsync();
+        await Task.WhenAll(projectTask, issuesTask, usersTask);
+
+        if (!projectTask.Result.Ok || !issuesTask.Result.Ok || !usersTask.Result.Ok)
+        {
+            _error = projectTask.Result.Error ?? issuesTask.Result.Error ?? usersTask.Result.Error;
+            _loading = false;
+            return;
+        }
+
+        _project = projectTask.Result.Value;
+        _issues = issuesTask.Result.Value!;
+        var users = usersTask.Result.Value!;
+
+        var statuses = Enum.GetValues<IssueStatus>();
+        _statusLabels = statuses.Select(UiHelpers.StatusLabel).ToArray();
+        _statusData = statuses.Select(s => (double)CountBy(s)).ToArray();
+
+        var open = _issues.Where(i => i.Status != IssueStatus.Done).ToList();
+        _unassignedOpen = open.Count(i => i.AssigneeId is null);
+        _workload = open
+            .Where(i => i.AssigneeId is not null)
+            .GroupBy(i => i.AssigneeId!.Value)
+            .Select(g => (users.FirstOrDefault(u => u.Id == g.Key)?.DisplayName ?? "Unknown user", g.Count()))
+            .OrderByDescending(x => x.Item2)
+            .ToList();
+
+        _loading = false;
+    }
+
+    private int CountBy(IssueStatus status) => _issues.Count(i => i.Status == status);
+    private int CountBy(IssuePriority priority) => _issues.Count(i => i.Priority == priority);
+    private int CountBy(IssueType type) => _issues.Count(i => i.Type == type);
+
+    private double Percent(int count) => _issues.Count == 0 ? 0 : count * 100.0 / _issues.Count;
+
+    // Donut drawn with a CSS conic-gradient: one slice per status, in the status colors.
+    private string DonutStyle()
+    {
+        string[] colors = ["var(--mud-palette-gray-light)", "var(--mud-palette-info)", "var(--mud-palette-success)"];
+        var parts = new List<string>();
+        double start = 0;
+        for (var i = 0; i < _statusData.Length; i++)
+        {
+            var end = start + Percent((int)_statusData[i]);
+            parts.Add($"{colors[i]} {start.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}% {end.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}%");
+            start = end;
+        }
+
+        return $"background: conic-gradient({string.Join(", ", parts)});";
+    }
+
+    private int CompletionPercent() => (int)Math.Round(Percent(CountBy(IssueStatus.Done)));
+}
