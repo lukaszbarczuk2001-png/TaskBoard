@@ -119,6 +119,7 @@ else
     private static readonly IssueStatus[] Columns = [IssueStatus.ToDo, IssueStatus.InProgress, IssueStatus.Done];
 
     private MudDropContainer<IssueDto>? _container;
+    private bool _refreshContainer;
     private ProjectDto? _project;
     private List<IssueDto> _issues = [];
     private List<IssueDto> _visible = [];
@@ -184,7 +185,18 @@ else
                         || i.Title.Contains(search, StringComparison.OrdinalIgnoreCase)
                         || $"{_project?.Key}-{i.Number}".Contains(search, StringComparison.OrdinalIgnoreCase))
             .ToList();
-        _container?.Refresh();
+        // The drop container still holds the previous Items until the parent re-renders,
+        // so refresh it after that render (see OnAfterRender) instead of right here.
+        _refreshContainer = true;
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (_refreshContainer)
+        {
+            _refreshContainer = false;
+            _container?.Refresh();
+        }
     }
 
     private void ClearFilters()
