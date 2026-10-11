@@ -1,7 +1,113 @@
-﻿@page "/"
+@page "/"
+@inject TaskBoardApiClient Api
+@inject AuthTokenService Auth
+@inject NavigationManager Nav
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Projects - TaskBoard</PageTitle>
 
-<h1>Hello, world!</h1>
+<MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Projects</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+               OnClick="CreateProjectAsync">
+        New project
+    </MudButton>
+</MudStack>
 
-Welcome to your new app.
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Class="mb-4" />
+}
+else if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">
+        @_error
+        <MudButton Variant="Variant.Text" Color="Color.Inherit" OnClick="LoadAsync">Retry</MudButton>
+    </MudAlert>
+}
+else if (_projects.Count == 0)
+{
+    <MudAlert Severity="Severity.Info">No projects yet. Create your first one with "New project".</MudAlert>
+}
+else
+{
+    <MudGrid>
+        @foreach (var project in _projects)
+        {
+            <MudItem xs="12" sm="6" md="4">
+                <MudCard>
+                    <MudCardContent>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Primary">@project.Key</MudChip>
+                        <MudText Typo="Typo.h6" Class="mt-2">@project.Name</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            @(string.IsNullOrWhiteSpace(project.Description) ? "No description" : project.Description)
+                        </MudText>
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/projects/{project.Id}")">
+                            Open board
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
+}
+
+@code {
+    private List<ProjectDto> _projects = [];
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Auth.IsAuthenticated)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        var result = await Api.GetProjectsAsync();
+        if (result.Ok)
+        {
+            _projects = result.Value!;
+        }
+        else
+        {
+            _error = result.Error;
+        }
+
+        _loading = false;
+    }
+
+    private async Task CreateProjectAsync()
+    {
+        var dialog = await Dialogs.ShowAsync<CreateProjectDialog>("New project");
+        var dialogResult = await dialog.Result;
+
+        if (dialogResult is not { Canceled: false, Data: CreateProjectRequest request })
+        {
+            return;
+        }
+
+        var result = await Api.CreateProjectAsync(request);
+        if (result.Ok)
+        {
+            Snackbar.Add($"Project {result.Value!.Key} created.", Severity.Success);
+            await LoadAsync();
+        }
+        else
+        {
+            Snackbar.Add(result.Error ?? "Could not create the project.", Severity.Error);
+        }
+    }
+}

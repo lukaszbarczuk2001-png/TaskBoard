@@ -1,5 +1,6 @@
 using MudBlazor.Services;
 using TaskBoard.Web.Components;
+using TaskBoard.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -7,6 +8,18 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddMudServices();
+
+// Talking to TaskBoard.Api: a named HttpClient (base address from config) plus
+// per-circuit services for the signed-in user's token and the typed API wrapper.
+builder.Services.AddHttpClient(TaskBoardApiClient.HttpClientName, client =>
+{
+    var baseUrl = builder.Configuration["Api:BaseUrl"]
+        ?? throw new InvalidOperationException("Missing configuration value 'Api:BaseUrl'.");
+    client.BaseAddress = new Uri(baseUrl);
+    client.Timeout = TimeSpan.FromSeconds(60); // Azure SQL Serverless can take a while to wake up
+});
+builder.Services.AddScoped<AuthTokenService>();
+builder.Services.AddScoped<TaskBoardApiClient>();
 
 var app = builder.Build();
 

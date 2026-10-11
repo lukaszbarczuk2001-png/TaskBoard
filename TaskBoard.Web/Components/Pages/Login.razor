@@ -1,0 +1,115 @@
+@page "/login"
+@inject TaskBoardApiClient Api
+@inject AuthTokenService Auth
+@inject NavigationManager Nav
+
+<PageTitle>Sign in - TaskBoard</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+    <MudPaper Class="pa-6" Elevation="3">
+        <MudText Typo="Typo.h5" Class="mb-4">Sign in to TaskBoard</MudText>
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+        }
+
+        <MudTextField @bind-Value="_email" Label="Email" InputType="InputType.Email"
+                      Immediate="true" Class="mb-3" Disabled="_busy" />
+        <MudTextField @bind-Value="_password" Label="Password" InputType="InputType.Password"
+                      Immediate="true" Class="mb-4" Disabled="_busy" OnKeyDown="OnPasswordKeyDown"
+                      HelperText="Registering needs 6+ chars with upper/lower case, a digit and a symbol." />
+
+        <MudStack Row="true" Spacing="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SignInAsync" Disabled="_busy">
+                @(_busy ? "Please wait..." : "Sign in")
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="RegisterAsync" Disabled="_busy">
+                Create account
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+    private string? _error;
+    private bool _busy;
+
+    protected override void OnInitialized()
+    {
+        if (Auth.IsAuthenticated)
+        {
+            Nav.NavigateTo("/");
+        }
+    }
+
+    private async Task OnPasswordKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SignInAsync();
+        }
+    }
+
+    private async Task SignInAsync()
+    {
+        if (!Validate()) return;
+
+        _busy = true;
+        _error = null;
+
+        var result = await Api.LoginAsync(_email.Trim(), _password);
+        _busy = false;
+
+        if (result.Ok)
+        {
+            Nav.NavigateTo("/");
+        }
+        else
+        {
+            _error = result.Error;
+        }
+    }
+
+    private async Task RegisterAsync()
+    {
+        if (!Validate()) return;
+
+        _busy = true;
+        _error = null;
+
+        var registered = await Api.RegisterAsync(_email.Trim(), _password);
+        if (!registered.Ok)
+        {
+            _busy = false;
+            _error = registered.Error;
+            return;
+        }
+
+        // Account created: sign in straight away.
+        var login = await Api.LoginAsync(_email.Trim(), _password);
+        _busy = false;
+
+        if (login.Ok)
+        {
+            Nav.NavigateTo("/");
+        }
+        else
+        {
+            _error = login.Error;
+        }
+    }
+
+    private bool Validate()
+    {
+        if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrEmpty(_password))
+        {
+            _error = "Enter your email and password.";
+            return false;
+        }
+
+        return true;
+    }
+}

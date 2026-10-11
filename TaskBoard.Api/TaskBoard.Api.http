@@ -14,7 +14,7 @@ Content-Type: application/json
 POST {{TaskBoard.Api_HostAddress}}/api/auth/login
 Content-Type: application/json
 
-{
+{ 
   "email": "lukasz@example.com",
   "password": "P@ssw0rd!123"
 }
@@ -33,8 +33,7 @@ Authorization: Bearer {{login.response.body.$.accessToken}}
 {
   "key": "DEMO",
   "name": "Demo project",
-  "description": "Pierwszy projekt testowy",
-  "ownerId": "00000000-0000-0000-0000-000000000000"
+  "description": "Pierwszy projekt testowy"
 }
 
 

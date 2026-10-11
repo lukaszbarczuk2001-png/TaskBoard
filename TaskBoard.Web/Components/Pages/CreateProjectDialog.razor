@@ -1,0 +1,28 @@
+<MudDialog>
+    <DialogContent>
+        <MudTextField @bind-Value="_key" Label="Key" Immediate="true" MaxLength="10" Class="mb-2"
+                      HelperText="2-10 letters/digits, e.g. TB. Used in issue ids (TB-1)." />
+        <MudTextField @bind-Value="_name" Label="Name" Immediate="true" MaxLength="200" Class="mb-2" />
+        <MudTextField @bind-Value="_description" Label="Description (optional)" Lines="3" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Submit"
+                   Disabled="@(string.IsNullOrWhiteSpace(_key) || string.IsNullOrWhiteSpace(_name))">
+            Create
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string _key = string.Empty;
+    private string _name = string.Empty;
+    private string? _description;
+
+    private void Submit() =>
+        MudDialog.Close(DialogResult.Ok(new CreateProjectRequest(_key, _name, _description)));
+
+    private void Cancel() => MudDialog.Cancel();
+}

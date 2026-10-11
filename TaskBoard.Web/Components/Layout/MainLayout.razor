@@ -1,4 +1,8 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject AuthTokenService Auth
+@inject TaskBoardApiClient Api
+@inject NavigationManager Nav
 
 <MudThemeProvider />
 <MudPopoverProvider />
@@ -7,7 +11,15 @@
 
 <MudLayout>
     <MudAppBar Elevation="1">
-        <MudText Typo="Typo.h5" Class="ml-3">TaskBoard</MudText>
+        <MudLink Href="/" Underline="Underline.None" Color="Color.Inherit">
+            <MudText Typo="Typo.h5" Class="ml-3">TaskBoard</MudText>
+        </MudLink>
+        <MudSpacer />
+        @if (Auth.IsAuthenticated)
+        {
+            <MudText Typo="Typo.body2" Class="mr-3">@Auth.Email</MudText>
+            <MudButton Color="Color.Inherit" Variant="Variant.Outlined" OnClick="SignOut">Sign out</MudButton>
+        }
     </MudAppBar>
     <MudMainContent Class="pa-4">
         @Body
@@ -19,3 +31,28 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Auth.Changed += OnAuthChanged;
+        Api.SessionExpired += OnSessionExpired;
+    }
+
+    private void SignOut()
+    {
+        Auth.SignOut();
+        Nav.NavigateTo("/login");
+    }
+
+    private void OnAuthChanged() => InvokeAsync(StateHasChanged);
+
+    // The API said our token is no longer valid: go back to the login page.
+    private void OnSessionExpired() => InvokeAsync(() => Nav.NavigateTo("/login"));
+
+    public void Dispose()
+    {
+        Auth.Changed -= OnAuthChanged;
+        Api.SessionExpired -= OnSessionExpired;
+    }
+}
