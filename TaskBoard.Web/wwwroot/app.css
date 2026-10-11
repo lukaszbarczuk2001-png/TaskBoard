@@ -36,17 +36,180 @@ h1:focus {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
-/* ---- TaskBoard UI ---- */
+/* ---- TaskBoard UI (Linear-style) ---- */
+:root {
+    --tb-radius: 10px;
+    --tb-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+body {
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+}
+
 .mud-main-content.tb-main {
     min-height: 100vh;
 }
 
+/* Headings: tighter and calmer than the Material defaults */
+.mud-typography-h4, .mud-typography-h5, .mud-typography-h6 {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+}
+
+.mud-typography-h4 { font-size: 1.6rem; }
+.mud-typography-h5 { font-size: 1.3rem; }
+
+/* App bar: translucent with a hairline border instead of a heavy blue bar */
+.mud-appbar.tb-appbar {
+    background: color-mix(in srgb, var(--mud-palette-background) 80%, transparent);
+    backdrop-filter: saturate(180%) blur(12px);
+    border-bottom: 1px solid var(--mud-palette-lines-default);
+    box-shadow: none;
+}
+
+/* Brand */
+.tb-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tb-logo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    color: #fff;
+    background: linear-gradient(135deg, #7c85f5, #5e6ad2);
+    box-shadow: 0 1px 2px rgba(94, 106, 210, 0.4);
+}
+
+.tb-brand-name {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--mud-palette-text-primary);
+}
+
+/* Drawer */
+.mud-drawer.tb-drawer {
+    border-right: 1px solid var(--mud-palette-lines-default);
+}
+
+.tb-drawer-header {
+    display: flex;
+    align-items: center;
+    height: 52px;
+    padding: 0 16px;
+}
+
+.tb-nav {
+    padding: 4px 8px;
+}
+
+.tb-nav-section {
+    padding: 16px 10px 6px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--mud-palette-text-secondary);
+}
+
+.tb-nav .mud-nav-link {
+    border-radius: 8px;
+    margin: 1px 0;
+    padding: 6px 10px;
+    font-size: 0.875rem;
+    transition: background-color 0.15s var(--tb-ease), color 0.15s var(--tb-ease);
+}
+
+.tb-nav .mud-nav-link .mud-nav-link-text {
+    font-weight: 450;
+}
+
+.tb-nav .mud-nav-link.active:not(.mud-nav-link-disabled) {
+    background: color-mix(in srgb, var(--mud-palette-primary) 12%, transparent);
+    color: var(--mud-palette-primary);
+}
+
+.tb-nav .mud-nav-link.active .mud-nav-link-text {
+    font-weight: 600;
+}
+
+.tb-project-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.tb-project-badge {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+/* Surfaces: hairline borders instead of Material shadows */
+.mud-main-content .mud-card,
+.mud-main-content .mud-paper-outlined {
+    border-radius: var(--tb-radius);
+    border: 1px solid var(--mud-palette-lines-default);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+    background: var(--mud-palette-surface);
+}
+
+.mud-dialog {
+    border-radius: 14px;
+    border: 1px solid var(--mud-palette-lines-default);
+}
+
+.mud-overlay-dialog {
+    backdrop-filter: blur(3px);
+}
+
+/* Buttons and inputs */
+.mud-button-root {
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 500;
+    border-radius: 8px;
+}
+
+.mud-button-filled {
+    box-shadow: none;
+}
+
+.mud-button-filled:hover {
+    box-shadow: 0 1px 3px rgba(94, 106, 210, 0.35);
+}
+
+.mud-input-outlined .mud-input-outlined-border {
+    border-radius: 8px;
+}
+
+.mud-chip, .mud-badge {
+    font-weight: 500;
+}
+
+/* Cards on the board and project grid */
 .tb-card {
-    transition: box-shadow 0.15s ease, transform 0.15s ease;
+    transition: transform 0.18s var(--tb-ease), border-color 0.18s var(--tb-ease), box-shadow 0.18s var(--tb-ease);
 }
 
 .tb-card:hover {
-    box-shadow: var(--mud-elevation-6);
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--mud-palette-primary) 45%, var(--mud-palette-lines-default));
+    box-shadow: 0 6px 16px rgba(16, 24, 40, 0.08);
 }
 
 .tb-clickable {
@@ -55,7 +218,8 @@ h1:focus {
 
 .tb-column {
     background: var(--mud-palette-background-gray);
-    border-radius: var(--mud-default-borderradius);
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: var(--tb-radius);
 }
 
 .tb-donut {
@@ -65,15 +229,66 @@ h1:focus {
     display: flex;
     align-items: center;
     justify-content: center;
+    animation: tb-pop 0.8s var(--tb-ease) both;
 }
 
 .tb-donut-hole {
-    width: 104px;
-    height: 104px;
+    width: 112px;
+    height: 112px;
     border-radius: 50%;
     background: var(--mud-palette-surface);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+}
+
+/* Auth page */
+.tb-auth-card {
+    padding: 32px;
+    border-radius: 16px !important;
+    box-shadow: 0 8px 30px rgba(16, 24, 40, 0.08) !important;
+}
+
+/* ---- Motion ---- */
+@keyframes tb-fade-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+}
+
+@keyframes tb-pop {
+    from { opacity: 0; transform: scale(0.88) rotate(-25deg); }
+    to { opacity: 1; transform: none; }
+}
+
+.tb-page > * {
+    animation: tb-fade-in 0.35s var(--tb-ease) both;
+}
+
+.tb-page .mud-grid > .mud-grid-item {
+    animation: tb-fade-in 0.45s var(--tb-ease) both;
+}
+
+.tb-page .mud-grid > .mud-grid-item:nth-child(2) { animation-delay: 0.05s; }
+.tb-page .mud-grid > .mud-grid-item:nth-child(3) { animation-delay: 0.10s; }
+.tb-page .mud-grid > .mud-grid-item:nth-child(4) { animation-delay: 0.15s; }
+.tb-page .mud-grid > .mud-grid-item:nth-child(5) { animation-delay: 0.20s; }
+.tb-page .mud-grid > .mud-grid-item:nth-child(6) { animation-delay: 0.25s; }
+.tb-page .mud-grid > .mud-grid-item:nth-child(n+7) { animation-delay: 0.30s; }
+
+.tb-page .mud-progress-linear-bar {
+    transition: transform 0.9s var(--tb-ease);
+}
+
+/* Thin, quiet scrollbars */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--mud-palette-lines-inputs) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+    }
 }

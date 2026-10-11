@@ -20,6 +20,22 @@ public static class UiHelpers
         return AvatarColors[(hash & int.MaxValue) % AvatarColors.Length];
     }
 
+    private static readonly string[] BadgeColors =
+    [
+        "#5E6AD2", "#8B5CF6", "#3E8EF7", "#1F9D6B", "#D99100", "#E5484D", "#E5589D", "#0E9AA7"
+    ];
+
+    /// <summary>Stable hex color for small project badges in the sidebar.</summary>
+    public static string ColorHex(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return BadgeColors[0];
+        var hash = 0;
+        foreach (var c in text) hash = unchecked(hash * 31 + c);
+        return BadgeColors[(hash & int.MaxValue) % BadgeColors.Length];
+    }
+
+    public static string BadgeStyle(string? text) => $"background:{ColorHex(text)};color:#fff;font-weight:600";
+
     public static string Initials(string? name)
     {
         if (string.IsNullOrWhiteSpace(name)) return "?";
