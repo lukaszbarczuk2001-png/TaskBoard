@@ -1,0 +1,30 @@
+@if (Project is not null)
+{
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4" Wrap="Wrap.Wrap">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/" aria-label="Back to projects" />
+            <MudAvatar Color="@UiHelpers.ColorFor(Project.Key)" Variant="Variant.Filled" Rounded="true">@Project.Key[..1]</MudAvatar>
+            <div>
+                <MudText Typo="Typo.h5">@Project.Name</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">@Project.Key</MudText>
+            </div>
+        </MudStack>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudButtonGroup Variant="Variant.Outlined" Size="Size.Small">
+                <MudButton Href="@($"/projects/{Project.Id}")"
+                           Color="@(ActiveTab == "board" ? Color.Primary : Color.Default)"
+                           StartIcon="@Icons.Material.Filled.ViewKanban">Board</MudButton>
+                <MudButton Href="@($"/projects/{Project.Id}/dashboard")"
+                           Color="@(ActiveTab == "dashboard" ? Color.Primary : Color.Default)"
+                           StartIcon="@Icons.Material.Filled.Insights">Dashboard</MudButton>
+            </MudButtonGroup>
+            @Actions
+        </MudStack>
+    </MudStack>
+}
+
+@code {
+    [Parameter] public ProjectDto? Project { get; set; }
+    [Parameter] public string ActiveTab { get; set; } = "board";
+    [Parameter] public RenderFragment? Actions { get; set; }
+}

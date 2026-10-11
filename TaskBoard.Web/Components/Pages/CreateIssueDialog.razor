@@ -1,21 +1,39 @@
 <MudDialog>
     <DialogContent>
-        <MudTextField @bind-Value="_title" Label="Title" Immediate="true" MaxLength="300" Class="mb-2" Required="true" />
-        <MudTextField @bind-Value="_description" Label="Description (optional)" Lines="4" Class="mb-2" />
-        <MudStack Row="true" Spacing="2">
-            <MudSelect T="IssueType" @bind-Value="_type" Label="Type">
-                @foreach (var type in Enum.GetValues<IssueType>())
-                {
-                    <MudSelectItem Value="type">@type</MudSelectItem>
-                }
-            </MudSelect>
-            <MudSelect T="IssuePriority" @bind-Value="_priority" Label="Priority">
-                @foreach (var priority in Enum.GetValues<IssuePriority>())
-                {
-                    <MudSelectItem Value="priority">@priority</MudSelectItem>
-                }
-            </MudSelect>
-        </MudStack>
+        <MudTextField @bind-Value="_title" Label="Title" Immediate="true" MaxLength="300" Class="mb-2"
+                      Required="true" Variant="Variant.Outlined" AutoFocus="true" />
+        <MudTextField @bind-Value="_description" Label="Description (optional)" Lines="4" Class="mb-2"
+                      Variant="Variant.Outlined" />
+        <MudGrid Spacing="2">
+            <MudItem xs="12" sm="4">
+                <MudSelect T="IssueType" @bind-Value="_type" Label="Type" Variant="Variant.Outlined">
+                    @foreach (var type in Enum.GetValues<IssueType>())
+                    {
+                        <MudSelectItem Value="type">
+                            <MudIcon Icon="@UiHelpers.TypeIcon(type)" Color="@UiHelpers.TypeColor(type)" Size="Size.Small" Class="mr-2" />@type
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudSelect T="IssuePriority" @bind-Value="_priority" Label="Priority" Variant="Variant.Outlined">
+                    @foreach (var priority in Enum.GetValues<IssuePriority>())
+                    {
+                        <MudSelectItem Value="priority">
+                            <MudIcon Icon="@UiHelpers.PriorityIcon(priority)" Color="@UiHelpers.PriorityColor(priority)" Size="Size.Small" Class="mr-2" />@priority
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudSelect T="Guid?" @bind-Value="_assigneeId" Label="Assignee" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var user in Users)
+                    {
+                        <MudSelectItem T="Guid?" Value="@((Guid?)user.Id)">@user.DisplayName</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Cancel">Cancel</MudButton>
@@ -28,14 +46,16 @@
 
 @code {
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public IReadOnlyList<UserDto> Users { get; set; } = [];
 
     private string _title = string.Empty;
     private string? _description;
     private IssueType _type = IssueType.Task;
     private IssuePriority _priority = IssuePriority.Medium;
+    private Guid? _assigneeId;
 
     private void Submit() =>
-        MudDialog.Close(DialogResult.Ok(new CreateIssueRequest(_title.Trim(), _description, _priority, _type)));
+        MudDialog.Close(DialogResult.Ok(new CreateIssueRequest(_title.Trim(), _description, _priority, _type, _assigneeId)));
 
     private void Cancel() => MudDialog.Cancel();
 }

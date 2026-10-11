@@ -7,20 +7,14 @@
 
 <PageTitle>@(_project?.Name ?? "Board") - TaskBoard</PageTitle>
 
-<MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/" aria-label="Back to projects" />
-        @if (_project is not null)
-        {
-            <MudChip T="string" Color="Color.Primary" Size="Size.Small">@_project.Key</MudChip>
-            <MudText Typo="Typo.h4">@_project.Name</MudText>
-        }
-    </MudStack>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-               OnClick="CreateIssueAsync" Disabled="_project is null">
-        New issue
-    </MudButton>
-</MudStack>
+<ProjectHeader Project="_project" ActiveTab="board">
+    <Actions>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="CreateIssueAsync" Disabled="_project is null">
+            Create issue
+        </MudButton>
+    </Actions>
+</ProjectHeader>
 
 @if (_loading)
 {
@@ -35,34 +29,88 @@ else if (_error is not null)
 }
 else
 {
-    <MudDropContainer T="IssueDto" @ref="_container" Items="_issues"
+    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-4" Wrap="Wrap.Wrap">
+        <MudTextField @bind-Value="_search" @bind-Value:after="ApplyFilters" Immediate="true" Placeholder="Search issues"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:260px" />
+        <MudSelect T="IssueType?" @bind-Value="_typeFilter" @bind-Value:after="ApplyFilters" Label="Type"
+                   Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Style="max-width:160px">
+            @foreach (var type in Enum.GetValues<IssueType>())
+            {
+                <MudSelectItem T="IssueType?" Value="@((IssueType?)type)">@type</MudSelectItem>
+            }
+        </MudSelect>
+        <MudSelect T="IssuePriority?" @bind-Value="_priorityFilter" @bind-Value:after="ApplyFilters" Label="Priority"
+                   Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Style="max-width:160px">
+            @foreach (var priority in Enum.GetValues<IssuePriority>())
+            {
+                <MudSelectItem T="IssuePriority?" Value="@((IssuePriority?)priority)">@priority</MudSelectItem>
+            }
+        </MudSelect>
+        <MudSelect T="Guid?" @bind-Value="_assigneeFilter" @bind-Value:after="ApplyFilters" Label="Assignee"
+                   Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Style="max-width:200px">
+            @foreach (var user in _users)
+            {
+                <MudSelectItem T="Guid?" Value="@((Guid?)user.Id)">@user.DisplayName</MudSelectItem>
+            }
+        </MudSelect>
+        @if (HasFilters)
+        {
+            <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ClearFilters">Clear filters</MudButton>
+        }
+    </MudStack>
+
+    <MudDropContainer T="IssueDto" @ref="_container" Items="_visible"
                       ItemsSelector="@((issue, zone) => issue.Status.ToString() == zone)"
                       ItemDropped="OnItemDroppedAsync" Class="d-flex flex-row flex-wrap gap-4">
         <ChildContent>
             @foreach (var status in Columns)
             {
-                <MudPaper Class="pa-3" Style="min-width: 280px; flex: 1;" Elevation="0" Outlined="true">
-                    <MudText Typo="Typo.subtitle1" Class="mb-2">
-                        @ColumnTitle(status) <MudChip T="string" Size="Size.Small">@CountIn(status)</MudChip>
-                    </MudText>
-                    <MudDropZone T="IssueDto" Identifier="@status.ToString()" Class="rounded-lg pa-1"
-                                 Style="min-height: 120px;" AllowReorder="false" />
-                </MudPaper>
+                <div class="tb-column pa-3" style="min-width: 290px; flex: 1;">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+                        <MudText Typo="Typo.overline" Style="font-weight:600">@UiHelpers.StatusLabel(status)</MudText>
+                        <MudChip T="string" Size="Size.Small" Color="@UiHelpers.StatusColor(status)" Variant="Variant.Text">@CountIn(status)</MudChip>
+                    </MudStack>
+                    <MudDropZone T="IssueDto" Identifier="@status.ToString()" Class="rounded-lg"
+                                 Style="min-height: 160px;" AllowReorder="false" />
+                </div>
             }
         </ChildContent>
         <ItemRenderer>
-            <MudCard Class="mb-2" Elevation="2">
+            <MudCard Class="mb-2 tb-card tb-clickable" Outlined="true" Elevation="0" @onclick="() => OpenIssueAsync(context)">
                 <MudCardContent Class="pa-3">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@($"{_project?.Key}-{context.Number}")</MudText>
-                    <MudText Typo="Typo.body1">@context.Title</MudText>
-                    <MudStack Row="true" Spacing="1" Class="mt-2">
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@context.Type</MudChip>
-                        <MudChip T="string" Size="Size.Small" Color="@PriorityColor(context.Priority)">@context.Priority</MudChip>
+                    <MudText Typo="Typo.body2" Class="mb-3" Style="font-weight:500">@context.Title</MudText>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudTooltip Text="@context.Type.ToString()">
+                                <MudIcon Icon="@UiHelpers.TypeIcon(context.Type)" Color="@UiHelpers.TypeColor(context.Type)" Size="Size.Small" />
+                            </MudTooltip>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@($"{_project?.Key}-{context.Number}")</MudText>
+                        </MudStack>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudTooltip Text="@($"{context.Priority} priority")">
+                                <MudIcon Icon="@UiHelpers.PriorityIcon(context.Priority)" Color="@UiHelpers.PriorityColor(context.Priority)" Size="Size.Small" />
+                            </MudTooltip>
+                            @if (context.AssigneeId is { } assigneeId)
+                            {
+                                <MudTooltip Text="@UserName(assigneeId)">
+                                    <MudAvatar Size="Size.Small" Color="@UiHelpers.ColorFor(UserName(assigneeId))"
+                                               Style="font-size:0.7rem">@UiHelpers.Initials(UserName(assigneeId))</MudAvatar>
+                                </MudTooltip>
+                            }
+                        </MudStack>
                     </MudStack>
                 </MudCardContent>
             </MudCard>
         </ItemRenderer>
     </MudDropContainer>
+
+    @if (_issues.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-4">
+            No issues yet. Use "Create issue" to add the first one.
+        </MudText>
+    }
 }
 
 @code {
@@ -73,8 +121,18 @@ else
     private MudDropContainer<IssueDto>? _container;
     private ProjectDto? _project;
     private List<IssueDto> _issues = [];
+    private List<IssueDto> _visible = [];
+    private List<UserDto> _users = [];
     private bool _loading = true;
     private string? _error;
+
+    private string _search = string.Empty;
+    private IssueType? _typeFilter;
+    private IssuePriority? _priorityFilter;
+    private Guid? _assigneeFilter;
+
+    private bool HasFilters =>
+        !string.IsNullOrWhiteSpace(_search) || _typeFilter is not null || _priorityFilter is not null || _assigneeFilter is not null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -92,30 +150,57 @@ else
         _loading = true;
         _error = null;
 
-        var project = await Api.GetProjectAsync(ProjectId);
-        if (!project.Ok)
-        {
-            _error = project.Error;
-            _loading = false;
-            return;
-        }
+        var projectTask = Api.GetProjectAsync(ProjectId);
+        var issuesTask = Api.GetIssuesAsync(ProjectId);
+        var usersTask = Api.GetUsersAsync();
+        await Task.WhenAll(projectTask, issuesTask, usersTask);
 
-        var issues = await Api.GetIssuesAsync(ProjectId);
-        if (!issues.Ok)
+        var project = projectTask.Result;
+        var issues = issuesTask.Result;
+        var users = usersTask.Result;
+
+        if (!project.Ok || !issues.Ok || !users.Ok)
         {
-            _error = issues.Error;
+            _error = project.Error ?? issues.Error ?? users.Error;
             _loading = false;
             return;
         }
 
         _project = project.Value;
         _issues = issues.Value!;
+        _users = users.Value!;
+        ApplyFilters();
         _loading = false;
+    }
+
+    private void ApplyFilters()
+    {
+        var search = _search?.Trim();
+        _visible = _issues
+            .Where(i => _typeFilter is null || i.Type == _typeFilter)
+            .Where(i => _priorityFilter is null || i.Priority == _priorityFilter)
+            .Where(i => _assigneeFilter is null || i.AssigneeId == _assigneeFilter)
+            .Where(i => string.IsNullOrEmpty(search)
+                        || i.Title.Contains(search, StringComparison.OrdinalIgnoreCase)
+                        || $"{_project?.Key}-{i.Number}".Contains(search, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        _container?.Refresh();
+    }
+
+    private void ClearFilters()
+    {
+        _search = string.Empty;
+        _typeFilter = null;
+        _priorityFilter = null;
+        _assigneeFilter = null;
+        ApplyFilters();
     }
 
     private async Task CreateIssueAsync()
     {
-        var dialog = await Dialogs.ShowAsync<CreateIssueDialog>("New issue");
+        var parameters = new DialogParameters<CreateIssueDialog> { { x => x.Users, _users } };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        var dialog = await Dialogs.ShowAsync<CreateIssueDialog>("Create issue", parameters, options);
         var dialogResult = await dialog.Result;
 
         if (dialogResult is not { Canceled: false, Data: CreateIssueRequest request })
@@ -131,8 +216,43 @@ else
         }
 
         _issues.Add(result.Value!);
-        _container?.Refresh();
+        ApplyFilters();
         Snackbar.Add($"{_project?.Key}-{result.Value!.Number} created.", Severity.Success);
+    }
+
+    private async Task OpenIssueAsync(IssueDto issue)
+    {
+        var parameters = new DialogParameters<IssueDetailDialog>
+        {
+            { x => x.ProjectId, ProjectId },
+            { x => x.ProjectKey, _project?.Key ?? string.Empty },
+            { x => x.Issue, issue },
+            { x => x.Users, _users }
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true };
+        var dialog = await Dialogs.ShowAsync<IssueDetailDialog>(string.Empty, parameters, options);
+        var dialogResult = await dialog.Result;
+
+        if (dialogResult is not { Canceled: false, Data: IssueDialogResult outcome })
+        {
+            return;
+        }
+
+        var index = _issues.FindIndex(i => i.Id == issue.Id);
+        if (index < 0) return;
+
+        if (outcome.Deleted)
+        {
+            _issues.RemoveAt(index);
+            Snackbar.Add($"{_project?.Key}-{issue.Number} deleted.", Severity.Success);
+        }
+        else if (outcome.Issue is not null)
+        {
+            _issues[index] = outcome.Issue;
+            Snackbar.Add($"{_project?.Key}-{issue.Number} saved.", Severity.Success);
+        }
+
+        ApplyFilters();
     }
 
     private async Task OnItemDroppedAsync(MudItemDropInfo<IssueDto> drop)
@@ -149,31 +269,18 @@ else
 
         // Optimistic update: move the card immediately, then confirm with the API.
         _issues[index] = original with { Status = newStatus };
-        _container?.Refresh();
+        ApplyFilters();
 
         var result = await Api.UpdateIssueStatusAsync(ProjectId, original.Id, newStatus);
         if (!result.Ok)
         {
             _issues[index] = original; // roll back
-            _container?.Refresh();
+            ApplyFilters();
             Snackbar.Add(result.Error ?? "Could not move the issue.", Severity.Error);
         }
     }
 
-    private int CountIn(IssueStatus status) => _issues.Count(i => i.Status == status);
+    private int CountIn(IssueStatus status) => _visible.Count(i => i.Status == status);
 
-    private static string ColumnTitle(IssueStatus status) => status switch
-    {
-        IssueStatus.ToDo => "To do",
-        IssueStatus.InProgress => "In progress",
-        IssueStatus.Done => "Done",
-        _ => status.ToString()
-    };
-
-    private static Color PriorityColor(IssuePriority priority) => priority switch
-    {
-        IssuePriority.High => Color.Error,
-        IssuePriority.Medium => Color.Warning,
-        _ => Color.Default
-    };
+    private string UserName(Guid id) => _users.FirstOrDefault(u => u.Id == id)?.DisplayName ?? "Unknown user";
 }

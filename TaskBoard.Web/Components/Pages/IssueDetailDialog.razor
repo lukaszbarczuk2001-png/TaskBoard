@@ -1,0 +1,229 @@
+@inject TaskBoardApiClient Api
+@inject AuthTokenService Auth
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@UiHelpers.TypeIcon(_type)" Color="@UiHelpers.TypeColor(_type)" />
+            <MudText Typo="Typo.subtitle1" Color="Color.Secondary">@ProjectKey-@Issue.Number</MudText>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        <MudGrid Spacing="4">
+            <MudItem xs="12" md="8">
+                <MudTextField @bind-Value="_title" Label="Title" Variant="Variant.Outlined" MaxLength="300"
+                              Immediate="true" Class="mb-3" />
+                <MudTextField @bind-Value="_description" Label="Description" Variant="Variant.Outlined"
+                              Lines="6" Class="mb-4" />
+
+                <MudText Typo="Typo.subtitle1" Class="mb-2">Comments (@_comments.Count)</MudText>
+                @if (_commentsLoading)
+                {
+                    <MudProgressLinear Indeterminate="true" />
+                }
+                @foreach (var comment in _comments)
+                {
+                    <MudStack Row="true" Spacing="2" Class="mb-3">
+                        <MudAvatar Size="Size.Small" Color="@UiHelpers.ColorFor(comment.AuthorName)">@UiHelpers.Initials(comment.AuthorName)</MudAvatar>
+                        <div style="flex:1; min-width:0">
+                            <MudText Typo="Typo.body2">
+                                <b>@comment.AuthorName</b>
+                                <span style="opacity:.6"> &middot; @comment.CreatedAtUtc.ToLocalTime().ToString("g")</span>
+                            </MudText>
+                            <MudText Typo="Typo.body2" Style="white-space: pre-wrap">@comment.Content</MudText>
+                        </div>
+                        @if (comment.AuthorId == _currentUserId)
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" Size="Size.Small"
+                                           OnClick="() => DeleteCommentAsync(comment)" aria-label="Delete comment" />
+                        }
+                    </MudStack>
+                }
+                @if (!_commentsLoading && _comments.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">No comments yet.</MudText>
+                }
+                <MudTextField @bind-Value="_newComment" Label="Add a comment" Variant="Variant.Outlined"
+                              Lines="2" Immediate="true" MaxLength="4000" Class="mb-2" />
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="AddCommentAsync"
+                           Disabled="@(string.IsNullOrWhiteSpace(_newComment) || _busy)">
+                    Comment
+                </MudButton>
+            </MudItem>
+
+            <MudItem xs="12" md="4">
+                <MudSelect T="IssueStatus" @bind-Value="_status" Label="Status" Variant="Variant.Outlined" Class="mb-3">
+                    @foreach (var status in Enum.GetValues<IssueStatus>())
+                    {
+                        <MudSelectItem Value="status">@UiHelpers.StatusLabel(status)</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudSelect T="IssueType" @bind-Value="_type" Label="Type" Variant="Variant.Outlined" Class="mb-3">
+                    @foreach (var type in Enum.GetValues<IssueType>())
+                    {
+                        <MudSelectItem Value="type">
+                            <MudIcon Icon="@UiHelpers.TypeIcon(type)" Color="@UiHelpers.TypeColor(type)" Size="Size.Small" Class="mr-2" />@type
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+                <MudSelect T="IssuePriority" @bind-Value="_priority" Label="Priority" Variant="Variant.Outlined" Class="mb-3">
+                    @foreach (var priority in Enum.GetValues<IssuePriority>())
+                    {
+                        <MudSelectItem Value="priority">
+                            <MudIcon Icon="@UiHelpers.PriorityIcon(priority)" Color="@UiHelpers.PriorityColor(priority)" Size="Size.Small" Class="mr-2" />@priority
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+                <MudSelect T="Guid?" @bind-Value="_assigneeId" Label="Assignee" Variant="Variant.Outlined"
+                           Clearable="true" Class="mb-3">
+                    @foreach (var user in Users)
+                    {
+                        <MudSelectItem T="Guid?" Value="@((Guid?)user.Id)">@user.DisplayName</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    Reporter: @UserName(Issue.ReporterId)<br />
+                    Created: @Issue.CreatedAtUtc.ToLocalTime().ToString("g")
+                    @if (Issue.UpdatedAtUtc is { } updated)
+                    {
+                        <br />
+                        @:Updated: @updated.ToLocalTime().ToString("g")
+                    }
+                </MudText>
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Error" StartIcon="@Icons.Material.Filled.DeleteOutline" Class="mr-auto"
+                   OnClick="DeleteAsync" Disabled="_busy">Delete</MudButton>
+        <MudButton OnClick="Cancel">Close</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SaveAsync"
+                   Disabled="@(_busy || string.IsNullOrWhiteSpace(_title))">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter, EditorRequired] public Guid ProjectId { get; set; }
+    [Parameter, EditorRequired] public string ProjectKey { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public IssueDto Issue { get; set; } = default!;
+    [Parameter] public IReadOnlyList<UserDto> Users { get; set; } = [];
+
+    private string _title = string.Empty;
+    private string? _description;
+    private IssueStatus _status;
+    private IssueType _type;
+    private IssuePriority _priority;
+    private Guid? _assigneeId;
+
+    private List<CommentDto> _comments = [];
+    private bool _commentsLoading = true;
+    private string _newComment = string.Empty;
+    private bool _busy;
+    private Guid? _currentUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _title = Issue.Title;
+        _description = Issue.Description;
+        _status = Issue.Status;
+        _type = Issue.Type;
+        _priority = Issue.Priority;
+        _assigneeId = Issue.AssigneeId;
+
+        _currentUserId = Users.FirstOrDefault(u =>
+            string.Equals(u.Email, Auth.Email, StringComparison.OrdinalIgnoreCase))?.Id;
+
+        var result = await Api.GetCommentsAsync(ProjectId, Issue.Id);
+        if (result.Ok) _comments = result.Value!;
+        _commentsLoading = false;
+    }
+
+    private string UserName(Guid id) => Users.FirstOrDefault(u => u.Id == id)?.DisplayName ?? "Unknown user";
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+
+        var update = await Api.UpdateIssueAsync(ProjectId, Issue.Id,
+            new UpdateIssueRequest(_title.Trim(), _description, _priority, _type, _assigneeId));
+        if (!update.Ok)
+        {
+            _busy = false;
+            Snackbar.Add(update.Error ?? "Could not save the issue.", Severity.Error);
+            return;
+        }
+
+        var saved = update.Value!;
+        if (_status != saved.Status)
+        {
+            var statusResult = await Api.UpdateIssueStatusAsync(ProjectId, Issue.Id, _status);
+            if (!statusResult.Ok)
+            {
+                _busy = false;
+                Snackbar.Add(statusResult.Error ?? "Could not change the status.", Severity.Error);
+                return;
+            }
+
+            saved = statusResult.Value!;
+        }
+
+        MudDialog.Close(DialogResult.Ok(new IssueDialogResult(saved, false)));
+    }
+
+    private async Task DeleteAsync()
+    {
+        var confirmed = await Dialogs.ShowMessageBoxAsync(
+            "Delete issue",
+            $"Delete {ProjectKey}-{Issue.Number} \"{Issue.Title}\"? This cannot be undone.",
+            yesText: "Delete", cancelText: "Cancel");
+
+        if (confirmed != true) return;
+
+        _busy = true;
+        var result = await Api.DeleteIssueAsync(ProjectId, Issue.Id);
+        if (!result.Ok)
+        {
+            _busy = false;
+            Snackbar.Add(result.Error ?? "Could not delete the issue.", Severity.Error);
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(new IssueDialogResult(null, true)));
+    }
+
+    private async Task AddCommentAsync()
+    {
+        _busy = true;
+        var result = await Api.AddCommentAsync(ProjectId, Issue.Id, _newComment);
+        _busy = false;
+
+        if (result.Ok)
+        {
+            _comments.Add(result.Value!);
+            _newComment = string.Empty;
+        }
+        else
+        {
+            Snackbar.Add(result.Error ?? "Could not add the comment.", Severity.Error);
+        }
+    }
+
+    private async Task DeleteCommentAsync(CommentDto comment)
+    {
+        var result = await Api.DeleteCommentAsync(ProjectId, Issue.Id, comment.Id);
+        if (result.Ok)
+        {
+            _comments.Remove(comment);
+        }
+        else
+        {
+            Snackbar.Add(result.Error ?? "Could not delete the comment.", Severity.Error);
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}
