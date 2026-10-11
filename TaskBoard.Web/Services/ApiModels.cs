@@ -33,7 +33,21 @@ public record CreateIssueRequest(
     string Title,
     string? Description,
     IssuePriority? Priority,
-    IssueType? Type);
+    IssueType? Type,
+    Guid? AssigneeId = null);
+
+public record UpdateIssueRequest(
+    string Title,
+    string? Description,
+    IssuePriority Priority,
+    IssueType Type,
+    Guid? AssigneeId);
+
+public record UserDto(Guid Id, string Email, string DisplayName);
+
+public record CommentDto(Guid Id, Guid AuthorId, string AuthorName, string Content, DateTime CreatedAtUtc);
+
+public record CreateCommentRequest(string Content);
 
 /// <summary>Outcome of an API call: either a value or a human-readable error.</summary>
 public record ApiResult<T>(T? Value, string? Error)

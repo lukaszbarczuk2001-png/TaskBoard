@@ -46,5 +46,7 @@ app.MapGroup("/api/auth").MapIdentityApi<AppUser>();
 
 app.MapProjectEndpoints();
 app.MapIssueEndpoints();
+app.MapCommentEndpoints();
+app.MapUserEndpoints();
 
 app.Run();

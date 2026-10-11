@@ -75,6 +75,27 @@ public class TaskBoardApiClient(IHttpClientFactory httpClientFactory, AuthTokenS
     public Task<ApiResult<IssueDto>> UpdateIssueStatusAsync(Guid projectId, Guid issueId, IssueStatus status) =>
         WriteAsync<IssueDto>(HttpMethod.Patch, $"api/projects/{projectId}/issues/{issueId}/status", new { status });
 
+    public Task<ApiResult<IssueDto>> UpdateIssueAsync(Guid projectId, Guid issueId, UpdateIssueRequest request) =>
+        WriteAsync<IssueDto>(HttpMethod.Put, $"api/projects/{projectId}/issues/{issueId}", request);
+
+    public Task<ApiResult<bool>> DeleteIssueAsync(Guid projectId, Guid issueId) =>
+        DeleteAsync($"api/projects/{projectId}/issues/{issueId}");
+
+    // ---- Comments ---------------------------------------------------------
+
+    public Task<ApiResult<List<CommentDto>>> GetCommentsAsync(Guid projectId, Guid issueId) =>
+        GetAsync<List<CommentDto>>($"api/projects/{projectId}/issues/{issueId}/comments");
+
+    public Task<ApiResult<CommentDto>> AddCommentAsync(Guid projectId, Guid issueId, string content) =>
+        WriteAsync<CommentDto>(HttpMethod.Post, $"api/projects/{projectId}/issues/{issueId}/comments", new CreateCommentRequest(content));
+
+    public Task<ApiResult<bool>> DeleteCommentAsync(Guid projectId, Guid issueId, Guid commentId) =>
+        DeleteAsync($"api/projects/{projectId}/issues/{issueId}/comments/{commentId}");
+
+    // ---- Users ------------------------------------------------------------
+
+    public Task<ApiResult<List<UserDto>>> GetUsersAsync() => GetAsync<List<UserDto>>("api/users");
+
     // ---- Plumbing ---------------------------------------------------------
 
     private async Task<ApiResult<T>> GetAsync<T>(string url)
@@ -87,6 +108,14 @@ public class TaskBoardApiClient(IHttpClientFactory httpClientFactory, AuthTokenS
     {
         var response = await SendAsync(method, url, body);
         return await ToResultAsync<T>(response);
+    }
+
+    private async Task<ApiResult<bool>> DeleteAsync(string url)
+    {
+        var response = await SendAsync(HttpMethod.Delete, url);
+        return response.IsSuccessStatusCode
+            ? ApiResult<bool>.Success(true)
+            : ApiResult<bool>.Failure(await ReadErrorAsync(response));
     }
 
     private async Task<ApiResult<T>> ToResultAsync<T>(HttpResponseMessage response)
