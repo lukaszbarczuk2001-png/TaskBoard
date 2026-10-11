@@ -36,3 +36,44 @@ h1:focus {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+/* ---- TaskBoard UI ---- */
+.mud-main-content.tb-main {
+    min-height: 100vh;
+}
+
+.tb-card {
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.tb-card:hover {
+    box-shadow: var(--mud-elevation-6);
+}
+
+.tb-clickable {
+    cursor: pointer;
+}
+
+.tb-column {
+    background: var(--mud-palette-background-gray);
+    border-radius: var(--mud-default-borderradius);
+}
+
+.tb-donut {
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tb-donut-hole {
+    width: 104px;
+    height: 104px;
+    border-radius: 50%;
+    background: var(--mud-palette-surface);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}

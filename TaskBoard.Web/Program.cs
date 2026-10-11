@@ -20,6 +20,7 @@ builder.Services.AddHttpClient(TaskBoardApiClient.HttpClientName, client =>
 });
 builder.Services.AddScoped<AuthTokenService>();
 builder.Services.AddScoped<TaskBoardApiClient>();
+builder.Services.AddScoped<ProjectsState>();
 
 var app = builder.Build();
 

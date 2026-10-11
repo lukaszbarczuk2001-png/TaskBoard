@@ -49,6 +49,9 @@ public record CommentDto(Guid Id, Guid AuthorId, string AuthorName, string Conte
 
 public record CreateCommentRequest(string Content);
 
+/// <summary>What the issue detail dialog hands back to the board.</summary>
+public record IssueDialogResult(IssueDto? Issue, bool Deleted);
+
 /// <summary>Outcome of an API call: either a value or a human-readable error.</summary>
 public record ApiResult<T>(T? Value, string? Error)
 {

@@ -2,27 +2,76 @@
 @implements IDisposable
 @inject AuthTokenService Auth
 @inject TaskBoardApiClient Api
+@inject ProjectsState Projects
 @inject NavigationManager Nav
 
-<MudThemeProvider />
+<MudThemeProvider @ref="_themeProvider" Theme="_theme" @bind-IsDarkMode="_isDarkMode" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
 <MudLayout>
-    <MudAppBar Elevation="1">
-        <MudLink Href="/" Underline="Underline.None" Color="Color.Inherit">
-            <MudText Typo="Typo.h5" Class="ml-3">TaskBoard</MudText>
-        </MudLink>
-        <MudSpacer />
+    <MudAppBar Elevation="0" Class="tb-appbar">
         @if (Auth.IsAuthenticated)
         {
-            <MudText Typo="Typo.body2" Class="mr-3">@Auth.Email</MudText>
-            <MudButton Color="Color.Inherit" Variant="Variant.Outlined" OnClick="SignOut">Sign out</MudButton>
+            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+                           OnClick="() => _drawerOpen = !_drawerOpen" aria-label="Toggle menu" />
+        }
+        <MudLink Href="/" Underline="Underline.None" Color="Color.Inherit" Class="d-flex align-center">
+            <MudIcon Icon="@Icons.Material.Filled.ViewKanban" Class="mr-2" />
+            <MudText Typo="Typo.h6">TaskBoard</MudText>
+        </MudLink>
+        <MudSpacer />
+        <MudTooltip Text="@(_isDarkMode ? "Switch to light mode" : "Switch to dark mode")">
+            <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                           Color="Color.Inherit" OnClick="() => _isDarkMode = !_isDarkMode" aria-label="Toggle theme" />
+        </MudTooltip>
+        @if (Auth.IsAuthenticated)
+        {
+            <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                <ActivatorContent>
+                    <MudAvatar Size="Size.Small" Color="@UiHelpers.ColorFor(Auth.Email)" Class="ml-2" Style="cursor:pointer">
+                        @UiHelpers.Initials(Auth.Email)
+                    </MudAvatar>
+                </ActivatorContent>
+                <ChildContent>
+                    <MudText Typo="Typo.caption" Class="px-4 py-2" Color="Color.Secondary">@Auth.Email</MudText>
+                    <MudDivider />
+                    <MudMenuItem Icon="@Icons.Material.Filled.Logout" OnClick="SignOut">Sign out</MudMenuItem>
+                </ChildContent>
+            </MudMenu>
         }
     </MudAppBar>
-    <MudMainContent Class="pa-4">
-        @Body
+
+    @if (Auth.IsAuthenticated)
+    {
+        <MudDrawer @bind-Open="_drawerOpen" Elevation="0" Variant="DrawerVariant.Responsive" ClipMode="DrawerClipMode.Always">
+            <MudNavMenu>
+                <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">All projects</MudNavLink>
+                <MudDivider Class="my-2" />
+                <MudText Typo="Typo.overline" Class="px-4" Color="Color.Secondary">Projects</MudText>
+                @if (!Projects.Loaded && Projects.Error is null)
+                {
+                    <MudProgressLinear Indeterminate="true" Class="mx-4 my-2" Style="width:auto" />
+                }
+                @foreach (var project in Projects.Projects)
+                {
+                    <MudNavLink Href="@($"/projects/{project.Id}")" Match="NavLinkMatch.Prefix">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudAvatar Size="Size.Small" Variant="Variant.Filled" Color="@UiHelpers.ColorFor(project.Key)"
+                                       Style="font-size:0.7rem">@project.Key[..1]</MudAvatar>
+                            <span>@project.Name</span>
+                        </MudStack>
+                    </MudNavLink>
+                }
+            </MudNavMenu>
+        </MudDrawer>
+    }
+
+    <MudMainContent Class="tb-main">
+        <MudContainer MaxWidth="MaxWidth.ExtraExtraLarge" Class="py-6">
+            @Body
+        </MudContainer>
     </MudMainContent>
 </MudLayout>
 
@@ -33,26 +82,95 @@
 </div>
 
 @code {
+    private MudThemeProvider? _themeProvider;
+    private bool _isDarkMode;
+    private bool _drawerOpen = true;
+
+    private readonly MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#0C66E4",
+            Secondary = "#626F86",
+            Tertiary = "#6E5DC6",
+            Background = "#F7F8F9",
+            Surface = "#FFFFFF",
+            AppbarBackground = "#0747A6",
+            AppbarText = "#FFFFFF",
+            DrawerBackground = "#FFFFFF",
+            DrawerText = "#172B4D",
+            TextPrimary = "#172B4D",
+            Success = "#1F845A",
+            Warning = "#CF9F02",
+            Error = "#C9372C",
+            Info = "#0C66E4",
+            LinesDefault = "#DCDFE4"
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#579DFF",
+            Secondary = "#9FADBC",
+            Tertiary = "#B8ACF6",
+            Background = "#161A1D",
+            Surface = "#22272B",
+            AppbarBackground = "#1D2125",
+            AppbarText = "#DEE4EA",
+            DrawerBackground = "#1D2125",
+            DrawerText = "#B6C2CF",
+            TextPrimary = "#DEE4EA",
+            Success = "#4BCE97",
+            Warning = "#E2B203",
+            Error = "#F87168",
+            Info = "#579DFF",
+            LinesDefault = "#38414A"
+        },
+        LayoutProperties = new LayoutProperties { DrawerWidthLeft = "260px", DefaultBorderRadius = "6px" }
+    };
+
     protected override void OnInitialized()
     {
         Auth.Changed += OnAuthChanged;
         Api.SessionExpired += OnSessionExpired;
+        Projects.Changed += OnProjectsChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _themeProvider is not null)
+        {
+            // Start in the OS's light/dark preference.
+            _isDarkMode = await _themeProvider.GetSystemDarkModeAsync();
+            StateHasChanged();
+        }
+
+        if (Auth.IsAuthenticated && !Projects.Loaded && Projects.Error is null)
+        {
+            await Projects.EnsureLoadedAsync();
+        }
     }
 
     private void SignOut()
     {
         Auth.SignOut();
+        Projects.Clear();
         Nav.NavigateTo("/login");
     }
 
     private void OnAuthChanged() => InvokeAsync(StateHasChanged);
 
+    private void OnProjectsChanged() => InvokeAsync(StateHasChanged);
+
     // The API said our token is no longer valid: go back to the login page.
-    private void OnSessionExpired() => InvokeAsync(() => Nav.NavigateTo("/login"));
+    private void OnSessionExpired() => InvokeAsync(() =>
+    {
+        Projects.Clear();
+        Nav.NavigateTo("/login");
+    });
 
     public void Dispose()
     {
         Auth.Changed -= OnAuthChanged;
         Api.SessionExpired -= OnSessionExpired;
+        Projects.Changed -= OnProjectsChanged;
     }
 }
